@@ -4,7 +4,7 @@ import {
   OnApplicationBootstrap,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Cron } from '@nestjs/schedule';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { MatchStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ScoringService } from '../scoring/scoring.service';
@@ -17,8 +17,6 @@ export interface SyncSummary {
   scored: number;
   skipped: number;
 }
-
-const AR_TZ = 'America/Argentina/Buenos_Aires';
 
 @Injectable()
 export class SyncService implements OnApplicationBootstrap {
@@ -45,23 +43,23 @@ export class SyncService implements OnApplicationBootstrap {
     }
   }
 
-  // Dos syncs diarios en horario argentino: mediodia y noche.
-  @Cron('0 12 * * *', { timeZone: AR_TZ, name: 'sync-mediodia' })
-  async syncMidday(): Promise<void> {
-    await this.safeSync('cron mediodia');
-  }
-
-  @Cron('0 23 * * *', { timeZone: AR_TZ, name: 'sync-noche' })
-  async syncNight(): Promise<void> {
-    await this.safeSync('cron noche');
+  // Sync cada 5 minutos (resultados casi en vivo durante el torneo).
+  @Cron(CronExpression.EVERY_5_MINUTES, { name: 'sync-tick' })
+  async syncTick(): Promise<void> {
+    await this.safeSync('cron 5min');
   }
 
   private async safeSync(reason: string): Promise<void> {
     try {
       const s = await this.sync();
-      this.logger.log(
-        `Sync (${reason}) ok: ${s.teams} equipos, ${s.matches} partidos, ${s.scored} puntuados`,
-      );
+      // Para no inundar los logs (corre cada minuto), solo loguea si hubo cambios.
+      if (s.scored > 0) {
+        this.logger.log(
+          `Sync (${reason}): ${s.matches} partidos, ${s.scored} puntuados`,
+        );
+      } else {
+        this.logger.debug(`Sync (${reason}) ok sin cambios`);
+      }
     } catch (err) {
       this.logger.error(`Sync (${reason}) fallo: ${(err as Error).message}`);
     }

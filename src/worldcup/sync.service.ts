@@ -8,6 +8,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { MatchStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ScoringService } from '../scoring/scoring.service';
+import { spanishTeamName } from './team-names';
 import { parseLocalDateToUtc } from './timezone';
 import { WorldCupApiService } from './worldcup-api.service';
 
@@ -84,17 +85,18 @@ export class SyncService implements OnApplicationBootstrap {
       // 1) Upsert equipos -> mapa externalId -> internal id
       const teamIdByExternal = new Map<string, string>();
       for (const t of rawTeams) {
+        const name = spanishTeamName(t.name_en);
         const team = await this.prisma.team.upsert({
           where: { externalId: t.id },
           create: {
             externalId: t.id,
-            name: t.name_en,
+            name,
             code: t.fifa_code ?? null,
             group: t.groups ?? null,
             flagUrl: t.flag ?? null,
           },
           update: {
-            name: t.name_en,
+            name,
             code: t.fifa_code ?? null,
             group: t.groups ?? null,
             flagUrl: t.flag ?? null,

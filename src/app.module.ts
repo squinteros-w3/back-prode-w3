@@ -17,7 +17,18 @@ import { WorldCupModule } from './worldcup/worldcup.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      validate: (env: Record<string, unknown>) => {
+        const secret = env.JWT_SECRET;
+        if (typeof secret !== 'string' || secret.trim() === '') {
+          throw new Error(
+            'Falta la variable de entorno JWT_SECRET (requerida para firmar los JWT). Configurala antes de iniciar.',
+          );
+        }
+        return env;
+      },
+    }),
     ScheduleModule.forRoot(),
     ThrottlerModule.forRoot([
       { ttl: 60_000, limit: 120 },

@@ -25,7 +25,7 @@ export class PredictionsService {
     }
     if (getLockInfo(match.kickoffAt).locked) {
       throw new ForbiddenException(
-        'Las predicciones se cierran 1 hora antes del partido',
+        'Las predicciones se cierran 15 minutos antes del partido',
       );
     }
 

@@ -1,5 +1,5 @@
-/** Las predicciones se cierran 1 hora antes del kickoff. */
-export const PREDICTION_LOCK_MS = 60 * 60 * 1000;
+/** Las predicciones se cierran 15 minutos antes del kickoff. */
+export const PREDICTION_LOCK_MS = 15 * 60 * 1000;
 
 export interface LockInfo {
   locksAt: Date;

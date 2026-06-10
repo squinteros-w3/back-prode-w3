@@ -6,6 +6,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AdminModule } from './admin/admin.module';
 import { AuthModule } from './auth/auth.module';
+import { GroupsModule } from './groups/groups.module';
 import { LeaderboardModule } from './leaderboard/leaderboard.module';
 import { MatchesModule } from './matches/matches.module';
 import { PredictionsModule } from './predictions/predictions.module';
@@ -27,6 +28,7 @@ import { WorldCupModule } from './worldcup/worldcup.module';
     WorldCupModule,
     MatchesModule,
     PredictionsModule,
+    GroupsModule,
     LeaderboardModule,
     StatsModule,
     AdminModule,

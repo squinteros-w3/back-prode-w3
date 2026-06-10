@@ -1,0 +1,81 @@
+// Prode W3 — Mundial 2026
+// Datasource: PostgreSQL (Railway en prod, Docker en local).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum MatchStatus {
+  SCHEDULED
+  FINISHED
+}
+
+model User {
+  id          String       @id @default(cuid())
+  email       String       @unique
+  name        String
+  avatarUrl   String?
+  googleId    String?      @unique
+  role        Role         @default(USER)
+  predictions Prediction[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model Team {
+  id          String  @id @default(cuid())
+  externalId  String  @unique // id de worldcup26.ir
+  name        String
+  code        String? // sigla (ARG, BRA, ...)
+  group       String? // A..L
+  flagUrl     String?
+  homeMatches Match[] @relation("HomeTeam")
+  awayMatches Match[] @relation("AwayTeam")
+}
+
+model Match {
+  id          String       @id @default(cuid())
+  externalId  String       @unique // id de worldcup26.ir
+  homeTeamId  String
+  awayTeamId  String
+  homeTeam    Team         @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeam    Team         @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  kickoffAt   DateTime // UTC (derivado de local_date + SOURCE_TZ)
+  stage       String       @default("group") // group | round_of_32 | ... (type de la API)
+  group       String?
+  matchday    Int?
+  status      MatchStatus  @default(SCHEDULED)
+  homeScore   Int?
+  awayScore   Int?
+  predictions Prediction[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([kickoffAt])
+}
+
+model Prediction {
+  id            String   @id @default(cuid())
+  userId        String
+  matchId       String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  match         Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  homeScore     Int
+  awayScore     Int
+  pointsAwarded Int      @default(0)
+  isExact       Boolean  @default(false) // marcador exacto acertado (para desempate/medallas)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([userId, matchId])
+}

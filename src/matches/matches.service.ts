@@ -31,6 +31,8 @@ export class MatchesService {
         status: m.status,
         homeScore: m.homeScore,
         awayScore: m.awayScore,
+        homePenalties: m.homePenalties,
+        awayPenalties: m.awayPenalties,
         locksAt,
         locked,
         homeTeam: this.team(m.homeTeam),

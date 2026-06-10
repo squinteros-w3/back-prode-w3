@@ -54,6 +54,8 @@ export class AdminService {
         status: MatchStatus.FINISHED,
         homeScore: dto.homeScore,
         awayScore: dto.awayScore,
+        homePenalties: dto.homePenalties ?? null,
+        awayPenalties: dto.awayPenalties ?? null,
       },
     });
     await this.scoring.scoreMatch(matchId);

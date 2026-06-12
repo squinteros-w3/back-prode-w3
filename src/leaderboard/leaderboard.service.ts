@@ -6,6 +6,8 @@ export interface LeaderboardEntry {
   user: { id: string; name: string; avatarUrl: string | null };
   points: number;
   exacts: number;
+  /** Predicciones con puntos (resultado exacto + ganador acertado). */
+  hits: number;
   predictions: number;
 }
 
@@ -14,7 +16,7 @@ export class LeaderboardService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getLeaderboard(): Promise<LeaderboardEntry[]> {
-    const [users, sums, exacts] = await Promise.all([
+    const [users, sums, exacts, hits] = await Promise.all([
       this.prisma.user.findMany({
         select: { id: true, name: true, avatarUrl: true },
       }),
@@ -28,6 +30,11 @@ export class LeaderboardService {
         where: { isExact: true },
         _count: { _all: true },
       }),
+      this.prisma.prediction.groupBy({
+        by: ['userId'],
+        where: { pointsAwarded: { gt: 0 } },
+        _count: { _all: true },
+      }),
     ]);
 
     const sumByUser = new Map(
@@ -37,6 +44,7 @@ export class LeaderboardService {
       ]),
     );
     const exactByUser = new Map(exacts.map((e) => [e.userId, e._count._all]));
+    const hitByUser = new Map(hits.map((h) => [h.userId, h._count._all]));
 
     const entries = users
       .map((u) => {
@@ -45,6 +53,7 @@ export class LeaderboardService {
           user: u,
           points: agg?.points ?? 0,
           exacts: exactByUser.get(u.id) ?? 0,
+          hits: hitByUser.get(u.id) ?? 0,
           predictions: agg?.predictions ?? 0,
         };
       })

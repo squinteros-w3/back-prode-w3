@@ -8,7 +8,6 @@ import { AdminModule } from './admin/admin.module';
 import { AuthModule } from './auth/auth.module';
 import { GroupsModule } from './groups/groups.module';
 import { LeaderboardModule } from './leaderboard/leaderboard.module';
-import { LiveModule } from './live/live.module';
 import { MatchesModule } from './matches/matches.module';
 import { PredictionsModule } from './predictions/predictions.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -44,7 +43,6 @@ import { WorldCupModule } from './worldcup/worldcup.module';
     LeaderboardModule,
     StatsModule,
     AdminModule,
-    LiveModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

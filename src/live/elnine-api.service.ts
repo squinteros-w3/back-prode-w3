@@ -7,6 +7,18 @@ import type { ElnineMatch, ElnineMatchesResponse } from './elnine.types';
 // Slug del Mundial en elnine (Stats Perform). Constante estable.
 const WORLD_CUP_SLUG = 'fifa-world-cup';
 
+// elnine está detrás de Cloudflare y rebota (403) las requests "de bot" (UA
+// axios/sin headers de navegador), típico desde IPs de datacenter como Railway.
+// Imitamos al front que la consume (elnine.com.ar) para pasar el Bot Fight Mode.
+const BROWSER_HEADERS = {
+  'User-Agent':
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+  Accept: 'application/json, text/plain, */*',
+  'Accept-Language': 'es-AR,es;q=0.9,en;q=0.8',
+  Origin: 'https://elnine.com.ar',
+  Referer: 'https://elnine.com.ar/',
+};
+
 @Injectable()
 export class ElnineApiService {
   private readonly logger = new Logger(ElnineApiService.name);
@@ -34,7 +46,7 @@ export class ElnineApiService {
       const res = await firstValueFrom(
         this.http.get<ElnineMatchesResponse>(url, {
           timeout: 15000,
-          headers: { Accept: 'application/json' },
+          headers: BROWSER_HEADERS,
         }),
       );
       const groups = res.data?.items ?? [];

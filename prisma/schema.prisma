@@ -60,6 +60,9 @@ model Match {
   // Penales (solo eliminación, si hubo empate). Los carga el admin: la API no los provee.
   homePenalties Int?
   awayPenalties Int?
+  // Mapeo cosmético al id del match en elnine (overlay de vivo, ver src/live).
+  // Nullable y borrable: si se elimina src/live no afecta nada del resto.
+  liveExternalId String? @unique
   predictions Prediction[]
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt

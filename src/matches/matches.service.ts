@@ -49,6 +49,46 @@ export class MatchesService {
     });
   }
 
+  /**
+   * Desglose de un partido finalizado: quién predijo qué y cuánto sumó.
+   * Ordenado por puntos desc (exactos primero) y luego por nombre.
+   * Para partidos no finalizados devuelve `available: false`.
+   */
+  async resultsForMatch(matchId: string) {
+    const match = await this.prisma.match.findUnique({
+      where: { id: matchId },
+      include: { predictions: { include: { user: true } } },
+    });
+
+    if (!match || match.status !== 'FINISHED') {
+      return { available: false as const };
+    }
+
+    const predictions = match.predictions
+      .map((p) => ({
+        user: {
+          id: p.user.id,
+          name: p.user.name,
+          avatarUrl: p.user.avatarUrl,
+        },
+        homeScore: p.homeScore,
+        awayScore: p.awayScore,
+        points: p.pointsAwarded,
+        isExact: p.isExact,
+      }))
+      .sort(
+        (a, b) =>
+          b.points - a.points || a.user.name.localeCompare(b.user.name),
+      );
+
+    return {
+      available: true as const,
+      homeScore: match.homeScore,
+      awayScore: match.awayScore,
+      predictions,
+    };
+  }
+
   private team(t: {
     id: string;
     name: string;

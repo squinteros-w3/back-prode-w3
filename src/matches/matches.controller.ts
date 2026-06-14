@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { AuthUser } from '../auth/types';
@@ -12,5 +12,10 @@ export class MatchesController {
   @Get()
   list(@CurrentUser() user: AuthUser) {
     return this.matches.listForUser(user.id);
+  }
+
+  @Get(':matchId/results')
+  results(@Param('matchId') matchId: string) {
+    return this.matches.resultsForMatch(matchId);
   }
 }

@@ -89,6 +89,48 @@ export class MatchesService {
     };
   }
 
+  /**
+   * Pronósticos de un partido EN VIVO (ya comenzó pero no terminó).
+   * Devuelve quién predijo qué, sin puntos: el marcador real no se guarda
+   * durante el vivo, así que el front arma la "tendencia" a partir de esta lista.
+   * Solo se revela una vez que el partido arrancó (las predicciones ya están
+   * cerradas, así que mostrarlas no permite copiar).
+   */
+  async livePredictionsForMatch(matchId: string) {
+    const match = await this.prisma.match.findUnique({
+      where: { id: matchId },
+      include: { predictions: { include: { user: true } } },
+    });
+
+    if (!match || match.status === 'FINISHED') {
+      return { available: false as const };
+    }
+
+    const now = new Date();
+    const started = now.getTime() >= match.kickoffAt.getTime();
+    if (!started) {
+      return { available: false as const };
+    }
+
+    const predictions = match.predictions
+      .map((p) => ({
+        user: {
+          id: p.user.id,
+          name: p.user.name,
+          avatarUrl: p.user.avatarUrl,
+        },
+        homeScore: p.homeScore,
+        awayScore: p.awayScore,
+      }))
+      .sort((a, b) => a.user.name.localeCompare(b.user.name));
+
+    return {
+      available: true as const,
+      total: predictions.length,
+      predictions,
+    };
+  }
+
   private team(t: {
     id: string;
     name: string;

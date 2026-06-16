@@ -18,4 +18,9 @@ export class MatchesController {
   results(@Param('matchId') matchId: string) {
     return this.matches.resultsForMatch(matchId);
   }
+
+  @Get(':matchId/live-predictions')
+  livePredictions(@Param('matchId') matchId: string) {
+    return this.matches.livePredictionsForMatch(matchId);
+  }
 }

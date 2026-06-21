@@ -119,7 +119,7 @@ export class GroupsService {
   }
 
   /**
-   * Ranking de los terceros de cada grupo (los 8 mejores clasifican a 32avos).
+   * Ranking de los terceros de cada grupo (los 8 mejores clasifican a 16avos).
    * Se calcula desde las tablas de grupo y se actualiza partido a partido.
    * Criterios FIFA: puntos → diferencia de gol → goles a favor.
    */

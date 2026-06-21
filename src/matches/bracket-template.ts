@@ -36,7 +36,7 @@ const win = (match: number): SlotRef => ({ kind: 'matchWinner', match });
 const lose = (match: number): SlotRef => ({ kind: 'matchLoser', match });
 
 export const WC2026_BRACKET: readonly TemplateMatch[] = [
-  // 32avos de final (Round of 32)
+  // 16avos de final (Round of 32)
   { number: 73, stage: 'r32', home: ru('A'), away: ru('B') },
   { number: 74, stage: 'r32', home: w('E'), away: third('A', 'B', 'C', 'D', 'F') },
   { number: 75, stage: 'r32', home: w('F'), away: ru('C') },

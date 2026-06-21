@@ -7,6 +7,6 @@ import { WorldCupApiService } from './worldcup-api.service';
 @Module({
   imports: [HttpModule, ScoringModule],
   providers: [WorldCupApiService, SyncService],
-  exports: [SyncService],
+  exports: [SyncService, WorldCupApiService],
 })
 export class WorldCupModule {}

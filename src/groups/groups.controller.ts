@@ -11,4 +11,9 @@ export class GroupsController {
   standings() {
     return this.groups.getStandings();
   }
+
+  @Get('third-place')
+  thirdPlace() {
+    return this.groups.getThirdPlaceRanking();
+  }
 }

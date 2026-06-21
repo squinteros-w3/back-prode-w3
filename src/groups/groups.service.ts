@@ -18,6 +18,20 @@ export interface GroupStanding {
   standings: StandingRow[];
 }
 
+export interface ThirdPlaceRow extends StandingRow {
+  group: string;
+  /** Posición entre los 12 terceros (1 = mejor). */
+  rank: number;
+  /** Cae dentro de los 8 que clasifican (provisorio hasta cerrar la fase). */
+  qualified: boolean;
+}
+
+export interface ThirdPlaceRanking {
+  /** True cuando los 12 grupos terminaron de jugar (ranking definitivo). */
+  complete: boolean;
+  rows: ThirdPlaceRow[];
+}
+
 @Injectable()
 export class GroupsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -102,5 +116,41 @@ export class GroupsService {
           )
           .map(({ group: _g, ...row }) => row),
       }));
+  }
+
+  /**
+   * Ranking de los terceros de cada grupo (los 8 mejores clasifican a 32avos).
+   * Se calcula desde las tablas de grupo y se actualiza partido a partido.
+   * Criterios FIFA: puntos → diferencia de gol → goles a favor.
+   */
+  async getThirdPlaceRanking(): Promise<ThirdPlaceRanking> {
+    const standings = await this.getStandings();
+
+    // El tercero de cada grupo (índice 2). Un grupo aporta su tercero recién
+    // cuando tiene los 4 equipos cargados.
+    const thirds = standings
+      .filter((g) => g.standings.length >= 3)
+      .map((g) => ({ group: g.group, row: g.standings[2] }));
+
+    const complete =
+      standings.length > 0 &&
+      standings.every((g) => g.standings.every((s) => s.mp === 3));
+
+    const rows = thirds
+      .sort(
+        (a, b) =>
+          b.row.pts - a.row.pts ||
+          b.row.gd - a.row.gd ||
+          b.row.gf - a.row.gf ||
+          a.row.team.name.localeCompare(b.row.team.name),
+      )
+      .map<ThirdPlaceRow>(({ group, row }, i) => ({
+        ...row,
+        group,
+        rank: i + 1,
+        qualified: i < 8,
+      }));
+
+    return { complete, rows };
   }
 }

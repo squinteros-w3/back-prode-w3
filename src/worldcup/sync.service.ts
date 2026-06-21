@@ -113,6 +113,7 @@ export class SyncService implements OnApplicationBootstrap {
           status: true,
           homeScore: true,
           awayScore: true,
+          manualResult: true,
         },
       });
       const prevByExternal = new Map(existing.map((m) => [m.externalId, m]));
@@ -143,35 +144,37 @@ export class SyncService implements OnApplicationBootstrap {
           ? Number(g.matchday)
           : null;
 
+        // Si el admin cargó el resultado a mano, el sync actualiza los metadatos
+        // (equipos, horario, fase) pero NO pisa el marcador ni el estado.
+        const prev = prevByExternal.get(g.id);
+        const protectResult = prev?.manualResult === true;
+        const metadata = {
+          homeTeamId,
+          awayTeamId,
+          kickoffAt,
+          stage: g.type || 'group',
+          group: g.group || null,
+          matchday,
+        };
+        const resultData = { status, homeScore, awayScore };
+        // Snapshot de lo que reporta la API (para trazabilidad y aviso de
+        // discrepancia). Se guarda SIEMPRE, incluso si protegemos el resultado.
+        const apiSnapshot = { apiHomeScore: homeScore, apiAwayScore: awayScore };
+
         const saved = await this.prisma.match.upsert({
           where: { externalId: g.id },
-          create: {
-            externalId: g.id,
-            homeTeamId,
-            awayTeamId,
-            kickoffAt,
-            stage: g.type || 'group',
-            group: g.group || null,
-            matchday,
-            status,
-            homeScore,
-            awayScore,
-          },
-          update: {
-            homeTeamId,
-            awayTeamId,
-            kickoffAt,
-            stage: g.type || 'group',
-            group: g.group || null,
-            matchday,
-            status,
-            homeScore,
-            awayScore,
-          },
+          create: { externalId: g.id, ...metadata, ...resultData, ...apiSnapshot },
+          update: protectResult
+            ? { ...metadata, ...apiSnapshot }
+            : { ...metadata, ...resultData, ...apiSnapshot },
         });
         matches++;
 
-        const prev = prevByExternal.get(g.id);
+        if (protectResult) {
+          // El resultado lo maneja el admin: no re-puntuar ni revertir.
+          continue;
+        }
+
         const scoreChanged =
           finished &&
           (prev?.status !== MatchStatus.FINISHED ||

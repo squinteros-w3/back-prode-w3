@@ -17,6 +17,34 @@ export class AdminService {
     return this.sync.sync();
   }
 
+  /** Partidos para el panel admin: incluye trazabilidad (manual vs API). */
+  async listMatches() {
+    const matches = await this.prisma.match.findMany({
+      include: { homeTeam: true, awayTeam: true },
+      orderBy: { kickoffAt: 'asc' },
+    });
+
+    return matches.map((m) => ({
+      id: m.id,
+      externalId: m.externalId,
+      stage: m.stage,
+      group: m.group,
+      matchday: m.matchday,
+      kickoffAt: m.kickoffAt,
+      status: m.status,
+      homeScore: m.homeScore,
+      awayScore: m.awayScore,
+      homePenalties: m.homePenalties,
+      awayPenalties: m.awayPenalties,
+      // Trazabilidad: si lo cargó el admin y qué reportó la API.
+      manualResult: m.manualResult,
+      apiHomeScore: m.apiHomeScore,
+      apiAwayScore: m.apiAwayScore,
+      homeTeam: this.team(m.homeTeam),
+      awayTeam: this.team(m.awayTeam),
+    }));
+  }
+
   listUsers() {
     return this.prisma.user.findMany({
       select: {
@@ -56,9 +84,27 @@ export class AdminService {
         awayScore: dto.awayScore,
         homePenalties: dto.homePenalties ?? null,
         awayPenalties: dto.awayPenalties ?? null,
+        // Protege esta carga: el sync no la pisará desde la API.
+        manualResult: true,
       },
     });
     await this.scoring.scoreMatch(matchId);
     return this.prisma.match.findUnique({ where: { id: matchId } });
+  }
+
+  private team(t: {
+    id: string;
+    name: string;
+    code: string | null;
+    group: string | null;
+    flagUrl: string | null;
+  }) {
+    return {
+      id: t.id,
+      name: t.name,
+      code: t.code,
+      group: t.group,
+      flagUrl: t.flagUrl,
+    };
   }
 }

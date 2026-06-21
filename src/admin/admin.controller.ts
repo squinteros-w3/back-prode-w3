@@ -26,6 +26,11 @@ export class AdminController {
     return this.admin.syncNow();
   }
 
+  @Get('matches')
+  matches() {
+    return this.admin.listMatches();
+  }
+
   @Get('users')
   users() {
     return this.admin.listUsers();

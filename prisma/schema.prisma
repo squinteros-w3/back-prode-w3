@@ -60,6 +60,15 @@ model Match {
   // Penales (solo eliminación, si hubo empate). Los carga el admin: la API no los provee.
   homePenalties Int?
   awayPenalties Int?
+  // Resultado cargado a mano por el admin. Mientras esté en true, el sync NO
+  // pisa status/marcador desde la API (útil cuando la API está caída o atrasada
+  // y muestra como "en vivo" un partido que ya terminó).
+  manualResult  Boolean      @default(false)
+  // Último marcador FINALIZADO que reportó la API (null si la API aún no lo da
+  // por terminado). Sirve para trazabilidad y para avisar al admin cuando lo que
+  // cargó a mano no coincide con lo que terminó reportando la API.
+  apiHomeScore  Int?
+  apiAwayScore  Int?
   // Remanente del overlay de vivo (revertido). Columna sin uso; se conserva para
   // no generar drift con la DB. Se puede dropear con una migración si molesta.
   liveExternalId String? @unique

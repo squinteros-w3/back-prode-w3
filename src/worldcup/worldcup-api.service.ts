@@ -23,6 +23,11 @@ export interface RawGame {
   stadium_id: string;
   finished: string; // "TRUE" | "FALSE"
   type: string; // group | r32 | r16 | qf | sf | third | final
+  // Etiquetas del cruce cuando el equipo aún no está definido (eliminatoria).
+  // Ej: "Winner Group A", "Runner-up Group B", "3rd Group A/B/C/D/F",
+  // "Winner Match 73", "Loser Match 101".
+  home_team_label?: string;
+  away_team_label?: string;
 }
 
 @Injectable()

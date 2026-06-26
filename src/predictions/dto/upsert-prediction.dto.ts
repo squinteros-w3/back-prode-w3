@@ -1,4 +1,5 @@
-import { IsInt, Max, Min } from 'class-validator';
+import { PenaltyWinner } from '@prisma/client';
+import { IsEnum, IsInt, IsOptional, Max, Min } from 'class-validator';
 
 export class UpsertPredictionDto {
   @IsInt()
@@ -10,4 +11,9 @@ export class UpsertPredictionDto {
   @Min(0)
   @Max(99)
   awayScore: number;
+
+  // Ganador por penales elegido al pronosticar un empate en eliminación.
+  @IsOptional()
+  @IsEnum(PenaltyWinner)
+  penaltyWinner?: PenaltyWinner;
 }

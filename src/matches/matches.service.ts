@@ -41,6 +41,7 @@ export class MatchesService {
           ? {
               homeScore: prediction.homeScore,
               awayScore: prediction.awayScore,
+              penaltyWinner: prediction.penaltyWinner,
               pointsAwarded: prediction.pointsAwarded,
               isExact: prediction.isExact,
             }
@@ -73,6 +74,7 @@ export class MatchesService {
         },
         homeScore: p.homeScore,
         awayScore: p.awayScore,
+        penaltyWinner: p.penaltyWinner,
         points: p.pointsAwarded,
         isExact: p.isExact,
       }))
@@ -121,6 +123,7 @@ export class MatchesService {
         },
         homeScore: p.homeScore,
         awayScore: p.awayScore,
+        penaltyWinner: p.penaltyWinner,
       }))
       .sort((a, b) => a.user.name.localeCompare(b.user.name));
 

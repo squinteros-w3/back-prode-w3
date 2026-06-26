@@ -1,9 +1,10 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prediction } from '@prisma/client';
+import { PenaltyWinner, Prediction } from '@prisma/client';
 import { getLockInfo } from '../common/lock.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpsertPredictionDto } from './dto/upsert-prediction.dto';
@@ -29,6 +30,20 @@ export class PredictionsService {
       );
     }
 
+    // En eliminación, un empate va a penales: el usuario debe elegir un ganador.
+    // En grupos (o cuando el pronóstico no es empate) se ignora cualquier valor.
+    const isKnockout = match.stage !== 'group';
+    const isDraw = dto.homeScore === dto.awayScore;
+    let penaltyWinner: PenaltyWinner | null = null;
+    if (isKnockout && isDraw) {
+      if (!dto.penaltyWinner) {
+        throw new BadRequestException(
+          'En eliminación, si pronosticás un empate tenés que elegir quién gana por penales',
+        );
+      }
+      penaltyWinner = dto.penaltyWinner;
+    }
+
     return this.prisma.prediction.upsert({
       where: { userId_matchId: { userId, matchId } },
       create: {
@@ -36,10 +51,12 @@ export class PredictionsService {
         matchId,
         homeScore: dto.homeScore,
         awayScore: dto.awayScore,
+        penaltyWinner,
       },
       update: {
         homeScore: dto.homeScore,
         awayScore: dto.awayScore,
+        penaltyWinner,
       },
     });
   }

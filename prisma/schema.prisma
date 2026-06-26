@@ -20,6 +20,13 @@ enum MatchStatus {
   FINISHED
 }
 
+// Lado ganador por penales que elige el usuario al pronosticar un empate en
+// eliminación (HOME = local, AWAY = visitante).
+enum PenaltyWinner {
+  HOME
+  AWAY
+}
+
 model User {
   id          String       @id @default(cuid())
   email       String       @unique
@@ -88,6 +95,9 @@ model Prediction {
   match         Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
   homeScore     Int
   awayScore     Int
+  // Ganador por penales elegido al pronosticar un empate (solo eliminación).
+  // null en grupos o cuando el pronóstico no es empate.
+  penaltyWinner PenaltyWinner?
   pointsAwarded Int      @default(0)
   isExact       Boolean  @default(false) // marcador exacto acertado (para desempate/medallas)
   createdAt     DateTime @default(now())

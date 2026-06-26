@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { GroupsService, StandingRow } from '../groups/groups.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { stadiumCity } from '../worldcup/stadiums';
 import {
   BracketStage,
   SlotRef,
@@ -29,6 +30,8 @@ export interface BracketMatch {
   stage: BracketStage;
   /** ISO UTC; null mientras el partido no esté cargado en la DB. */
   kickoffAt: string | null;
+  /** Ciudad de la sede; null si el partido aún no está cargado en la DB. */
+  city: string | null;
   status: 'SCHEDULED' | 'FINISHED';
   home: BracketSlot;
   away: BracketSlot;
@@ -142,6 +145,7 @@ export class BracketService {
         externalId: String(t.number),
         stage: t.stage,
         kickoffAt: db.kickoffAt.toISOString(),
+        city: stadiumCity(db.stadiumId),
         status: db.status,
         home: this.dbSlot(db.homeTeam, db.homeScore, db.homePenalties),
         away: this.dbSlot(db.awayTeam, db.awayScore, db.awayPenalties),
@@ -153,6 +157,7 @@ export class BracketService {
       externalId: String(t.number),
       stage: t.stage,
       kickoffAt: null,
+      city: null,
       status: 'SCHEDULED',
       home: this.resolveSlot(t.home, groupRows, dbByExternal),
       away: this.resolveSlot(t.away, groupRows, dbByExternal),
@@ -257,6 +262,7 @@ interface DbMatch {
   externalId: string;
   status: 'SCHEDULED' | 'FINISHED';
   kickoffAt: Date;
+  stadiumId: string | null;
   homeScore: number | null;
   awayScore: number | null;
   homePenalties: number | null;

@@ -171,6 +171,7 @@ export class SyncService implements OnApplicationBootstrap {
           homeTeamId,
           awayTeamId,
           kickoffAt,
+          stadiumId: g.stadium_id || null,
           stage: g.type || 'group',
           group: g.group || null,
           matchday,

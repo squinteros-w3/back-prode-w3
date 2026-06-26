@@ -51,6 +51,7 @@ model Match {
   homeTeam    Team         @relation("HomeTeam", fields: [homeTeamId], references: [id])
   awayTeam    Team         @relation("AwayTeam", fields: [awayTeamId], references: [id])
   kickoffAt   DateTime // UTC (derivado de local_date + SOURCE_TZ)
+  stadiumId   String? // id de sede de worldcup26.ir; la ciudad se resuelve en stadiums.ts
   stage       String       @default("group") // group | round_of_32 | ... (type de la API)
   group       String?
   matchday    Int?

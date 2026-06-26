@@ -6,11 +6,12 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { MatchStatus } from '@prisma/client';
+import { BracketService } from '../matches/bracket.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ScoringService } from '../scoring/scoring.service';
 import { spanishTeamName } from './team-names';
 import { parseLocalDateToUtc } from './timezone';
-import { WorldCupApiService } from './worldcup-api.service';
+import { RawGame, WorldCupApiService } from './worldcup-api.service';
 
 export interface SyncSummary {
   teams: number;
@@ -29,6 +30,7 @@ export class SyncService implements OnApplicationBootstrap {
     private readonly prisma: PrismaService,
     private readonly scoring: ScoringService,
     private readonly config: ConfigService,
+    private readonly bracket: BracketService,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
@@ -118,22 +120,39 @@ export class SyncService implements OnApplicationBootstrap {
       });
       const prevByExternal = new Map(existing.map((m) => [m.externalId, m]));
 
-      let matches = 0;
-      let skipped = 0;
+      const counters = { matches: 0, skipped: 0 };
       const toScore: string[] = [];
       const toUnscore: string[] = [];
 
-      for (const g of rawGames) {
-        const homeTeamId = teamIdByExternal.get(g.home_team_id);
-        const awayTeamId = teamIdByExternal.get(g.away_team_id);
+      const processGame = async (
+        g: RawGame,
+        koTeams: Map<string, { homeTeamId: string; awayTeamId: string }>,
+      ): Promise<void> => {
+        let homeTeamId = teamIdByExternal.get(g.home_team_id);
+        let awayTeamId = teamIdByExternal.get(g.away_team_id);
         const kickoffAt = parseLocalDateToUtc(
           g.local_date,
           g.stadium_id,
           fallbackTz,
         );
+
+        // Eliminatoria: la API manda el partido con su fecha pero con equipo "0"
+        // hasta que termina la fase de grupos. Resolvemos el cruce desde
+        // standings / ganadores previos (igual que el cuadro) para crear la fila
+        // con su fecha apenas ambos lados estén definidos, y así poder cargarle
+        // resultado. Los terceros (3º de grupo) se resuelven cuando se implemente
+        // su asignación FIFA; hasta entonces esos cruces siguen sin crearse.
+        if ((!homeTeamId || !awayTeamId) && g.type && g.type !== 'group') {
+          const r = koTeams.get(g.id);
+          if (r) {
+            homeTeamId = homeTeamId ?? r.homeTeamId;
+            awayTeamId = awayTeamId ?? r.awayTeamId;
+          }
+        }
+
         if (!homeTeamId || !awayTeamId || !kickoffAt) {
-          skipped++;
-          continue;
+          counters.skipped++;
+          return;
         }
 
         const finished = g.finished?.toUpperCase() === 'TRUE';
@@ -168,11 +187,11 @@ export class SyncService implements OnApplicationBootstrap {
             ? { ...metadata, ...apiSnapshot }
             : { ...metadata, ...resultData, ...apiSnapshot },
         });
-        matches++;
+        counters.matches++;
 
         if (protectResult) {
           // El resultado lo maneja el admin: no re-puntuar ni revertir.
-          continue;
+          return;
         }
 
         const scoreChanged =
@@ -186,7 +205,18 @@ export class SyncService implements OnApplicationBootstrap {
           // El partido dejó de estar finalizado: limpiar puntos para evitar stale.
           toUnscore.push(saved.id);
         }
-      }
+      };
+
+      // Dos pasadas: primero los partidos de grupo (definen las posiciones) y
+      // después los de eliminatoria, resolviendo sus cruces con los resultados
+      // de grupo de ESTE mismo sync (no del anterior).
+      const groupGames = rawGames.filter((g) => !g.type || g.type === 'group');
+      const koGames = rawGames.filter((g) => g.type && g.type !== 'group');
+      const noKo = new Map<string, { homeTeamId: string; awayTeamId: string }>();
+      for (const g of groupGames) await processGame(g, noKo);
+      const koTeams = await this.bracket.resolveKnockoutTeamIds();
+      for (const g of koGames) await processGame(g, koTeams);
+      const { matches, skipped } = counters;
 
       for (const matchId of toScore) {
         await this.scoring.scoreMatch(matchId);

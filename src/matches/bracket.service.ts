@@ -89,6 +89,45 @@ export class BracketService {
     return bracket;
   }
 
+  /**
+   * IDs internos de equipo (home/away) ya resueltos para cada cruce de
+   * eliminatoria, a partir de standings y ganadores de partidos previos.
+   * Solo incluye los cruces donde AMBOS lados están definidos.
+   *
+   * Lo usa el sync: la API entrega los partidos de eliminatoria con su fecha
+   * pero con equipo "0" hasta que termina la fase de grupos, así que sin esto
+   * nunca se crearían en la DB y no se les podría cargar resultado. Con esto la
+   * fila se crea (con su fecha) apenas el cruce queda definido, igual que el cuadro.
+   */
+  async resolveKnockoutTeamIds(): Promise<
+    Map<string, { homeTeamId: string; awayTeamId: string }>
+  > {
+    const [standings, dbMatches] = await Promise.all([
+      this.groups.getStandings(),
+      this.prisma.match.findMany({
+        where: { stage: { not: 'group' } },
+        include: { homeTeam: true, awayTeam: true },
+      }),
+    ]);
+    const groupRows = new Map<string, StandingRow[]>(
+      standings.map((g) => [g.group, g.standings]),
+    );
+    const dbByExternal = new Map(dbMatches.map((m) => [m.externalId, m]));
+
+    const resolved = new Map<string, { homeTeamId: string; awayTeamId: string }>();
+    for (const t of WC2026_BRACKET) {
+      const home = this.resolveSlot(t.home, groupRows, dbByExternal);
+      const away = this.resolveSlot(t.away, groupRows, dbByExternal);
+      if (home.team && away.team) {
+        resolved.set(String(t.number), {
+          homeTeamId: home.team.id,
+          awayTeamId: away.team.id,
+        });
+      }
+    }
+    return resolved;
+  }
+
   /** Arma un cruce: si ya está en la DB usa ese dato; si no, lo resuelve. */
   private resolveMatch(
     t: TemplateMatch,

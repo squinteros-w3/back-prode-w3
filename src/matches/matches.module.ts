@@ -8,5 +8,6 @@ import { MatchesService } from './matches.service';
   imports: [GroupsModule],
   controllers: [MatchesController],
   providers: [MatchesService, BracketService],
+  exports: [BracketService],
 })
 export class MatchesModule {}

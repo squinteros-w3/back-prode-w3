@@ -137,16 +137,17 @@ export class SyncService implements OnApplicationBootstrap {
         );
 
         // Eliminatoria: la API manda el partido con su fecha pero con equipo "0"
-        // hasta que termina la fase de grupos. Resolvemos el cruce desde
-        // standings / ganadores previos (igual que el cuadro) para crear la fila
-        // con su fecha apenas ambos lados estén definidos, y así poder cargarle
-        // resultado. Los terceros (3º de grupo) se resuelven cuando se implemente
-        // su asignación FIFA; hasta entonces esos cruces siguen sin crearse.
-        if ((!homeTeamId || !awayTeamId) && g.type && g.type !== 'group') {
+        // hasta que termina la fase de grupos, y encima a veces asigna MAL el
+        // equipo (ej. #80 puso al ganador de G en el slot del ganador de L).
+        // Por eso, para los cruces de KO, nuestra resolución (cuadro fijo +
+        // standings reales) es AUTORITATIVA: cuando podemos resolver ambos lados
+        // —que es justo cuando estamos seguros— pisamos lo que mande la API.
+        // Si no podemos resolver el cruce, caemos a la API como antes.
+        if (g.type && g.type !== 'group') {
           const r = koTeams.get(g.id);
           if (r) {
-            homeTeamId = homeTeamId ?? r.homeTeamId;
-            awayTeamId = awayTeamId ?? r.awayTeamId;
+            homeTeamId = r.homeTeamId;
+            awayTeamId = r.awayTeamId;
           }
         }
 

@@ -123,8 +123,10 @@ export class GroupsService {
    * Se calcula desde las tablas de grupo y se actualiza partido a partido.
    * Criterios FIFA: puntos → diferencia de gol → goles a favor.
    */
-  async getThirdPlaceRanking(): Promise<ThirdPlaceRanking> {
-    const standings = await this.getStandings();
+  async getThirdPlaceRanking(
+    precomputed?: GroupStanding[],
+  ): Promise<ThirdPlaceRanking> {
+    const standings = precomputed ?? (await this.getStandings());
 
     // El tercero de cada grupo (índice 2). Un grupo aporta su tercero recién
     // cuando tiene los 4 equipos cargados.

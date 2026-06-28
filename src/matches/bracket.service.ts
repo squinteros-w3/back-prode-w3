@@ -1,7 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { GroupsService, StandingRow } from '../groups/groups.service';
+import {
+  GroupsService,
+  StandingRow,
+  ThirdPlaceRanking,
+} from '../groups/groups.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { stadiumCity } from '../worldcup/stadiums';
+import { thirdAssignment } from './best-thirds';
 import {
   BracketStage,
   SlotRef,
@@ -64,24 +69,10 @@ export class BracketService {
       return this.cache.data;
     }
 
-    const [standings, dbMatches] = await Promise.all([
-      this.groups.getStandings(),
-      this.prisma.match.findMany({
-        where: { stage: { not: 'group' } },
-        include: { homeTeam: true, awayTeam: true },
-      }),
-    ]);
-
-    // Posiciones de grupo, listas solo cuando el grupo terminó de jugarse.
-    const groupRows = new Map<string, StandingRow[]>(
-      standings.map((g) => [g.group, g.standings]),
-    );
-    // Partidos de eliminatoria ya cargados (con equipos reales y resultados),
-    // indexados por su número FIFA = externalId.
-    const dbByExternal = new Map(dbMatches.map((m) => [m.externalId, m]));
+    const { groupRows, dbByExternal, thirdTeamByMatch } = await this.loadData();
 
     const bracket = WC2026_BRACKET.map<BracketMatch>((t) =>
-      this.resolveMatch(t, groupRows, dbByExternal),
+      this.resolveMatch(t, groupRows, dbByExternal, thirdTeamByMatch),
     ).sort(
       (a, b) =>
         STAGE_ORDER[a.stage] - STAGE_ORDER[b.stage] ||
@@ -105,22 +96,24 @@ export class BracketService {
   async resolveKnockoutTeamIds(): Promise<
     Map<string, { homeTeamId: string; awayTeamId: string }>
   > {
-    const [standings, dbMatches] = await Promise.all([
-      this.groups.getStandings(),
-      this.prisma.match.findMany({
-        where: { stage: { not: 'group' } },
-        include: { homeTeam: true, awayTeam: true },
-      }),
-    ]);
-    const groupRows = new Map<string, StandingRow[]>(
-      standings.map((g) => [g.group, g.standings]),
-    );
-    const dbByExternal = new Map(dbMatches.map((m) => [m.externalId, m]));
+    const { groupRows, dbByExternal, thirdTeamByMatch } = await this.loadData();
 
     const resolved = new Map<string, { homeTeamId: string; awayTeamId: string }>();
     for (const t of WC2026_BRACKET) {
-      const home = this.resolveSlot(t.home, groupRows, dbByExternal);
-      const away = this.resolveSlot(t.away, groupRows, dbByExternal);
+      const home = this.resolveSlot(
+        t.home,
+        groupRows,
+        dbByExternal,
+        t.number,
+        thirdTeamByMatch,
+      );
+      const away = this.resolveSlot(
+        t.away,
+        groupRows,
+        dbByExternal,
+        t.number,
+        thirdTeamByMatch,
+      );
       if (home.team && away.team) {
         resolved.set(String(t.number), {
           homeTeamId: home.team.id,
@@ -131,11 +124,70 @@ export class BracketService {
     return resolved;
   }
 
+  /**
+   * Carga, en una sola pasada, todo lo que el cuadro necesita de la DB:
+   * tablas de grupo, partidos de eliminatoria ya cargados y la asignación de
+   * los mejores terceros a cada cruce de 16avos.
+   */
+  private async loadData(): Promise<{
+    groupRows: Map<string, StandingRow[]>;
+    dbByExternal: Map<string, DbMatch>;
+    thirdTeamByMatch: Map<number, BracketTeam>;
+  }> {
+    const [standings, dbMatches] = await Promise.all([
+      this.groups.getStandings(),
+      this.prisma.match.findMany({
+        where: { stage: { not: 'group' } },
+        include: { homeTeam: true, awayTeam: true },
+      }),
+    ]);
+
+    // Posiciones de grupo, listas solo cuando el grupo terminó de jugarse.
+    const groupRows = new Map<string, StandingRow[]>(
+      standings.map((g) => [g.group, g.standings]),
+    );
+    // Partidos de eliminatoria ya cargados (con equipos reales y resultados),
+    // indexados por su número FIFA = externalId.
+    const dbByExternal = new Map(dbMatches.map((m) => [m.externalId, m]));
+    // Reusamos las tablas ya calculadas para rankear los terceros.
+    const thirdRanking = await this.groups.getThirdPlaceRanking(standings);
+    const thirdTeamByMatch = this.buildThirdAssignment(thirdRanking);
+
+    return { groupRows, dbByExternal, thirdTeamByMatch };
+  }
+
+  /**
+   * Mapea cada cruce de 16avos con tercero (74, 77, 79, 80, 81, 82, 85, 87) al
+   * equipo que lo juega, según la tabla FIFA de asignación de mejores terceros.
+   * Solo resuelve cuando los 12 grupos terminaron y la combinación de 8 grupos
+   * clasificados está cargada; si no, queda vacío y el cuadro muestra el label.
+   */
+  private buildThirdAssignment(
+    ranking: ThirdPlaceRanking,
+  ): Map<number, BracketTeam> {
+    const out = new Map<number, BracketTeam>();
+    if (!ranking.complete) return out;
+
+    const qualified = ranking.rows.filter((r) => r.qualified);
+    if (qualified.length !== 8) return out;
+
+    const assignment = thirdAssignment(qualified.map((r) => r.group));
+    if (!assignment) return out;
+
+    const rowByGroup = new Map(qualified.map((r) => [r.group, r]));
+    for (const [matchNumber, group] of Object.entries(assignment)) {
+      const row = rowByGroup.get(group);
+      if (row) out.set(Number(matchNumber), this.toTeam(row.team));
+    }
+    return out;
+  }
+
   /** Arma un cruce: si ya está en la DB usa ese dato; si no, lo resuelve. */
   private resolveMatch(
     t: TemplateMatch,
     groupRows: Map<string, StandingRow[]>,
     dbByExternal: Map<string, DbMatch>,
+    thirdTeamByMatch: Map<number, BracketTeam>,
   ): BracketMatch {
     const db = dbByExternal.get(String(t.number));
 
@@ -159,8 +211,20 @@ export class BracketService {
       kickoffAt: null,
       city: null,
       status: 'SCHEDULED',
-      home: this.resolveSlot(t.home, groupRows, dbByExternal),
-      away: this.resolveSlot(t.away, groupRows, dbByExternal),
+      home: this.resolveSlot(
+        t.home,
+        groupRows,
+        dbByExternal,
+        t.number,
+        thirdTeamByMatch,
+      ),
+      away: this.resolveSlot(
+        t.away,
+        groupRows,
+        dbByExternal,
+        t.number,
+        thirdTeamByMatch,
+      ),
     };
   }
 
@@ -168,15 +232,22 @@ export class BracketService {
     ref: SlotRef,
     groupRows: Map<string, StandingRow[]>,
     dbByExternal: Map<string, DbMatch>,
+    matchNumber: number,
+    thirdTeamByMatch: Map<number, BracketTeam>,
   ): BracketSlot {
     switch (ref.kind) {
       case 'groupWinner':
         return this.groupSlot(groupRows, ref.group, 0, `1º Grupo ${ref.group}`);
       case 'groupRunnerUp':
         return this.groupSlot(groupRows, ref.group, 1, `2º Grupo ${ref.group}`);
-      case 'bestThird':
-        // Fase 1: la asignación de los mejores terceros (tabla FIFA) llega luego.
-        return this.labelSlot(`Mejor 3º (${ref.groups.join('/')})`);
+      case 'bestThird': {
+        // Asignación FIFA de mejores terceros: resuelta cuando terminó la fase
+        // de grupos; si no, cae al label con los grupos candidatos.
+        const team = thirdTeamByMatch.get(matchNumber);
+        return team
+          ? this.teamSlot(team)
+          : this.labelSlot(`Mejor 3º (${ref.groups.join('/')})`);
+      }
       case 'matchWinner': {
         const team = this.matchOutcome(dbByExternal, ref.match, 'winner');
         return team

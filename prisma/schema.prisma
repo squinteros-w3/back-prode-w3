@@ -65,7 +65,9 @@ model Match {
   status      MatchStatus  @default(SCHEDULED)
   homeScore   Int?
   awayScore   Int?
-  // Penales (solo eliminación, si hubo empate). Los carga el admin: la API no los provee.
+  // Penales (solo eliminación, si hubo empate). La API los provee
+  // (home_penalty_score/away_penalty_score) y el sync los parsea; el admin
+  // también puede cargarlos/corregirlos a mano (protegidos por manualResult).
   homePenalties Int?
   awayPenalties Int?
   // Resultado cargado a mano por el admin. Mientras esté en true, el sync NO

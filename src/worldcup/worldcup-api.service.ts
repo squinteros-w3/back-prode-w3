@@ -23,6 +23,10 @@ export interface RawGame {
   stadium_id: string;
   finished: string; // "TRUE" | "FALSE"
   type: string; // group | r32 | r16 | qf | sf | third | final
+  // Definición por penales (solo eliminación con empate). Ausentes si no hubo
+  // tanda; la API los provee como string numérico ("4", "3").
+  home_penalty_score?: string;
+  away_penalty_score?: string;
   // Etiquetas del cruce cuando el equipo aún no está definido (eliminatoria).
   // Ej: "Winner Group A", "Runner-up Group B", "3rd Group A/B/C/D/F",
   // "Winner Match 73", "Loser Match 101".

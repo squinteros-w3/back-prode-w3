@@ -160,6 +160,14 @@ export class SyncService implements OnApplicationBootstrap {
         const status = finished ? MatchStatus.FINISHED : MatchStatus.SCHEDULED;
         const homeScore = finished ? this.toInt(g.home_score) : null;
         const awayScore = finished ? this.toInt(g.away_score) : null;
+        // Penales: solo si el partido terminó y la API trae ambos marcadores de
+        // tanda (ausentes cuando no hubo definición por penales).
+        const homePenalties = finished
+          ? this.toPenalty(g.home_penalty_score)
+          : null;
+        const awayPenalties = finished
+          ? this.toPenalty(g.away_penalty_score)
+          : null;
         const matchday = Number.isFinite(Number(g.matchday))
           ? Number(g.matchday)
           : null;
@@ -177,7 +185,13 @@ export class SyncService implements OnApplicationBootstrap {
           group: g.group || null,
           matchday,
         };
-        const resultData = { status, homeScore, awayScore };
+        const resultData = {
+          status,
+          homeScore,
+          awayScore,
+          homePenalties,
+          awayPenalties,
+        };
         // Snapshot de lo que reporta la API (para trazabilidad y aviso de
         // discrepancia). Se guarda SIEMPRE, incluso si protegemos el resultado.
         const apiSnapshot = { apiHomeScore: homeScore, apiAwayScore: awayScore };
@@ -244,5 +258,12 @@ export class SyncService implements OnApplicationBootstrap {
   private toInt(value: string): number {
     const n = Number(value);
     return Number.isFinite(n) ? Math.trunc(n) : 0;
+  }
+
+  /** Penales de la tanda: null si la API no lo trae (no hubo definición). */
+  private toPenalty(value?: string): number | null {
+    if (value == null || value === '' || value === 'null') return null;
+    const n = Number(value);
+    return Number.isFinite(n) ? Math.trunc(n) : null;
   }
 }
